@@ -22,7 +22,11 @@ Una aplicación nativa de Android desarrollada con **Jetpack Compose** y **Clean
 ## 🧠 Límite Arquitectónico
 La aplicación limita intencionalmente la entrada a **50 discos** porque $2^{50}-1$ es el límite práctico que puede procesarse instantáneamente sin requerir librerías de `BigInteger` o arquitecturas de streaming paginado desde el backend.
 
+## 🏗️ Diagrama de Arquitectura de Clases
 
+A continuación se detalla la arquitectura Clean Architecture del cliente Android y su interacción con la API en FastAPI.
+
+```mermaid
 classDiagram
     %% ==========================================
     %% BACKEND: FastAPI (Python)
@@ -117,3 +121,4 @@ classDiagram
     %% CONEXIÓN CLIENTE - SERVIDOR
     %% ==========================================
     HanoiApiService ..> HanoiController : HTTP GET /api/solve?disks=n
+```
