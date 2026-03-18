@@ -25,100 +25,73 @@ La aplicación limita intencionalmente la entrada a **50 discos** porque $2^{50}
 ## 🏗️ Diagrama de Arquitectura de Clases
 
 A continuación se detalla la arquitectura Clean Architecture del cliente Android y su interacción con la API en FastAPI.
+## 🏗️ Diagrama de Clases (Clean Architecture)
+
+El cliente Android sigue estrictamente los principios de Clean Architecture y el patrón MVI/MVVM, garantizando el desacoplamiento entre la UI, las reglas de negocio y las fuentes de datos.
 
 ```mermaid
 classDiagram
     %% ==========================================
-    %% BACKEND: FastAPI (Python)
+    %% CAPA DE PRESENTACIÓN (UI / ViewModel)
     %% ==========================================
-    namespace Backend_FastAPI {
-        class HanoiController {
-            <<API Router>>
-            +solve_puzzle(disks: int): HanoiResponse
-        }
-        class HanoiService {
-            <<Business Logic>>
-            +calcular_hanoi(n: int, origen: str, destino: str, auxiliar: str, guardar_pasos: bool): List~Move~
-            +get_total_moves_math(n: int): long
-        }
-        class HanoiResponse {
-            <<DTO>>
-            +disks: int
-            +totalMoves: long
-            +executionTimeMs: float
-            +moves: List~Move~
-        }
-        class Move {
-            <<DTO>>
-            +disk: int
-            +from: str
-            +to: str
-        }
+    class HanoiScreen {
+        <<UI / Composable>>
+        +HanoiScreen(viewModel: HanoiViewModel)
+    }
+    class HanoiViewModel {
+        <<Presentation>>
+        -uiState: StateFlow~HanoiState~
+        +isAnimating: boolean
+        +getSolution(disks: int)
+        +toggleAnimation()
+    }
+    class HanoiState {
+        <<Sealed Interface>>
+        +Idle
+        +Loading
+        +Success(solution: HanoiSolution)
+        +Error(message: String)
     }
 
-    HanoiController --> HanoiService : delega el cálculo a
-    HanoiController --> HanoiResponse : retorna
-    HanoiResponse "1" *-- "*" Move : contiene
-
-    %% ==========================================
-    %% FRONTEND: Android (Kotlin / Clean Architecture)
-    %% ==========================================
-    namespace Frontend_Android_Clean_Arch {
-        class HanoiScreen {
-            <<UI / Composable>>
-            +HanoiScreen(viewModel: HanoiViewModel)
-        }
-        class HanoiViewModel {
-            <<Presentation>>
-            -uiState: StateFlow~HanoiState~
-            +isAnimating: boolean
-            +getSolution(disks: int)
-            +toggleAnimation()
-        }
-        class HanoiState {
-            <<Sealed Interface>>
-            +Idle
-            +Loading
-            +Success(solution: HanoiSolution)
-            +Error(message: String)
-        }
-        class SolveHanoiUseCase {
-            <<Domain>>
-            -repository: HanoiRepository
-            +invoke(disks: int): Flow~Result~
-        }
-        class HanoiRepository {
-            <<Domain Interface>>
-            +fetchSolution(disks: int): HanoiSolution
-        }
-        class HanoiRepositoryImpl {
-            <<Data>>
-            -apiService: HanoiApiService
-            +fetchSolution(disks: int): HanoiSolution
-        }
-        class HanoiApiService {
-            <<Data / Retrofit>>
-            +getHanoiSolution(disks: int): Response~HanoiResponse~
-        }
-        class HanoiSolution {
-            <<Domain Model>>
-            +disks: Int
-            +totalMoves: Long
-            +steps: List~Step~
-        }
-    }
-
-    %% Relaciones del Frontend
     HanoiScreen --> HanoiViewModel : observa estados
-    HanoiViewModel *-- HanoiState : maneja
+    HanoiViewModel *-- HanoiState : maneja y emite
+
+    %% ==========================================
+    %% CAPA DE DOMINIO (Casos de Uso / Interfaces)
+    %% ==========================================
+    class SolveHanoiUseCase {
+        <<Domain>>
+        -repository: HanoiRepository
+        +invoke(disks: int): Flow~Result~
+    }
+    class HanoiRepository {
+        <<Domain Interface>>
+        +fetchSolution(disks: int): HanoiSolution
+    }
+    class HanoiSolution {
+        <<Domain Model>>
+        +disks: Int
+        +totalMoves: Long
+        +steps: List~Step~
+    }
+
     HanoiViewModel --> SolveHanoiUseCase : ejecuta
     SolveHanoiUseCase --> HanoiRepository : solicita datos
+
+    %% ==========================================
+    %% CAPA DE DATOS (Implementación / Red)
+    %% ==========================================
+    class HanoiRepositoryImpl {
+        <<Data>>
+        -apiService: HanoiApiService
+        +fetchSolution(disks: int): HanoiSolution
+    }
+    class HanoiApiService {
+        <<Data / Retrofit>>
+        +getHanoiSolution(disks: int): Response~HanoiResponse~
+    }
+
     HanoiRepositoryImpl ..|> HanoiRepository : implementa
     HanoiRepositoryImpl --> HanoiApiService : hace petición HTTP
     HanoiRepositoryImpl --> HanoiSolution : mapea DTO a Dominio
-
-    %% ==========================================
-    %% CONEXIÓN CLIENTE - SERVIDOR
-    %% ==========================================
-    HanoiApiService ..> HanoiController : HTTP GET /api/solve?disks=n
 ```
