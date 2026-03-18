@@ -21,3 +21,99 @@ Una aplicación nativa de Android desarrollada con **Jetpack Compose** y **Clean
 
 ## 🧠 Límite Arquitectónico
 La aplicación limita intencionalmente la entrada a **50 discos** porque $2^{50}-1$ es el límite práctico que puede procesarse instantáneamente sin requerir librerías de `BigInteger` o arquitecturas de streaming paginado desde el backend.
+
+
+classDiagram
+    %% ==========================================
+    %% BACKEND: FastAPI (Python)
+    %% ==========================================
+    namespace Backend_FastAPI {
+        class HanoiController {
+            <<API Router>>
+            +solve_puzzle(disks: int): HanoiResponse
+        }
+        class HanoiService {
+            <<Business Logic>>
+            +calcular_hanoi(n: int, origen: str, destino: str, auxiliar: str, guardar_pasos: bool): List~Move~
+            +get_total_moves_math(n: int): long
+        }
+        class HanoiResponse {
+            <<DTO>>
+            +disks: int
+            +totalMoves: long
+            +executionTimeMs: float
+            +moves: List~Move~
+        }
+        class Move {
+            <<DTO>>
+            +disk: int
+            +from: str
+            +to: str
+        }
+    }
+
+    HanoiController --> HanoiService : delega el cálculo a
+    HanoiController --> HanoiResponse : retorna
+    HanoiResponse "1" *-- "*" Move : contiene
+
+    %% ==========================================
+    %% FRONTEND: Android (Kotlin / Clean Architecture)
+    %% ==========================================
+    namespace Frontend_Android_Clean_Arch {
+        class HanoiScreen {
+            <<UI / Composable>>
+            +HanoiScreen(viewModel: HanoiViewModel)
+        }
+        class HanoiViewModel {
+            <<Presentation>>
+            -uiState: StateFlow~HanoiState~
+            +isAnimating: boolean
+            +getSolution(disks: int)
+            +toggleAnimation()
+        }
+        class HanoiState {
+            <<Sealed Interface>>
+            +Idle
+            +Loading
+            +Success(solution: HanoiSolution)
+            +Error(message: String)
+        }
+        class SolveHanoiUseCase {
+            <<Domain>>
+            -repository: HanoiRepository
+            +invoke(disks: int): Flow~Result~
+        }
+        class HanoiRepository {
+            <<Domain Interface>>
+            +fetchSolution(disks: int): HanoiSolution
+        }
+        class HanoiRepositoryImpl {
+            <<Data>>
+            -apiService: HanoiApiService
+            +fetchSolution(disks: int): HanoiSolution
+        }
+        class HanoiApiService {
+            <<Data / Retrofit>>
+            +getHanoiSolution(disks: int): Response~HanoiResponse~
+        }
+        class HanoiSolution {
+            <<Domain Model>>
+            +disks: Int
+            +totalMoves: Long
+            +steps: List~Step~
+        }
+    }
+
+    %% Relaciones del Frontend
+    HanoiScreen --> HanoiViewModel : observa estados
+    HanoiViewModel *-- HanoiState : maneja
+    HanoiViewModel --> SolveHanoiUseCase : ejecuta
+    SolveHanoiUseCase --> HanoiRepository : solicita datos
+    HanoiRepositoryImpl ..|> HanoiRepository : implementa
+    HanoiRepositoryImpl --> HanoiApiService : hace petición HTTP
+    HanoiRepositoryImpl --> HanoiSolution : mapea DTO a Dominio
+
+    %% ==========================================
+    %% CONEXIÓN CLIENTE - SERVIDOR
+    %% ==========================================
+    HanoiApiService ..> HanoiController : HTTP GET /api/solve?disks=n
